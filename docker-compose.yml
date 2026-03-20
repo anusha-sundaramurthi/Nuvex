@@ -1,5 +1,5 @@
 services:
-  chat-studio:
+  chat_ui:
     build:
       context: .
       dockerfile: apps/chat_ui/Dockerfile

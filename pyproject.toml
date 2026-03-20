@@ -1,5 +1,5 @@
 [project]
-name = "ai-engineering-bootcamp-prerequisites"
+name = "Nuvex"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["apps/api", "apps/chatbot_ui", "apps/items_mcp_server", "apps/reviews_mcp_server"]
+members = ["apps/api", "apps/chat_ui"]
 
 [dependency-groups]
 dev = [
