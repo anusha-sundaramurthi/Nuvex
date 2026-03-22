@@ -10,6 +10,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./apps/chat_ui/src:/app/apps/chat_ui/src
+    environment:
+      - HOME=/tmp
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    networks:
+      - nuvex-network
 
   api:
     build:
@@ -22,6 +27,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./apps/api/src:/app/apps/api/src
+    networks:
+      - nuvex-network
 
   qdrant:
     image: qdrant/qdrant
@@ -31,5 +38,9 @@ services:
     volumes:
       - ./qdrant_storage:/qdrant/storage:z
     restart: unless-stopped
+    networks:
+      - nuvex-network
 
- 
+networks:
+  nuvex-network:
+    driver: bridge

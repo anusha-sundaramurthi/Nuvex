@@ -1,11 +1,18 @@
-import openai
+from google import genai
+from groq import Groq
 from qdrant_client import QdrantClient
 from langsmith import traceable, get_current_run_tree
 from pydantic import BaseModel, Field
-import instructor
 import numpy as np
-from qdrant_client.models import Filter, FieldCondition, MatchValue, Prefetch, FusionQuery, Document
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 from api.agents.utils.prompt_management import prompt_template_config
+from api.core.config import config
+import json
+
+
+# ── Clients ──
+gemini_client = genai.Client(api_key=config.GOOGLE_API_KEY)
+groq_client = Groq(api_key=config.GROQ_API_KEY)
 
 
 class RAGUsedContext(BaseModel):
@@ -20,23 +27,14 @@ class RAGGenerationResponse(BaseModel):
 @traceable(
     name="embed_query",
     run_type="embedding",
-    metadata={"ls_provider": "openai", "ls_model_name": "text-embedding-3-small"}
+    metadata={"ls_provider": "google", "ls_model_name": "gemini-embedding-001"}
 )
-def get_embedding(text, model="text-embedding-3-small"):
-    response = openai.embeddings.create(
-        input=text,
+def get_embedding(text, model="models/gemini-embedding-001"):
+    response = gemini_client.models.embed_content(
         model=model,
+        contents=text,
     )
-
-    current_run = get_current_run_tree()
-
-    if current_run:
-        current_run.metadata["usage_metadata"] = {
-            "input_tokens": response.usage.prompt_tokens,
-            "total_tokens": response.usage.total_tokens,
-        }
-
-    return response.data[0].embedding
+    return response.embeddings[0].values
 
 
 @traceable(
@@ -48,23 +46,8 @@ def retrieve_data(query, qdrant_client, k=5):
     query_embedding = get_embedding(query)
 
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-01-hybrid-search",
-        prefetch=[
-            Prefetch(
-                query=query_embedding,
-                using="text-embedding-3-small",
-                limit=20
-            ),
-            Prefetch(
-                query=Document(
-                    text=query,
-                    model="qdrant/bm25"
-                ),
-                using="bm25",
-                limit=20
-            )
-        ],
-        query=FusionQuery(fusion="rrf"),
+        collection_name="Amazon-items-collection-01",
+        query=query_embedding,
         limit=k,
     )
 
@@ -116,29 +99,51 @@ def build_prompt(preprocessed_context, question):
 @traceable(
     name="generate_answer",
     run_type="llm",
-    metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+    metadata={"ls_provider": "groq", "ls_model_name": "llama-3.3-70b-versatile"}
 )
 def generate_answer(prompt):
 
-    client = instructor.from_openai(openai.OpenAI())
+    system_prompt = prompt + """
 
-    response, raw_response = client.chat.completions.create_with_completion(
-        model="gpt-4.1-mini",
-        messages=[{"role": "system", "content": prompt}],
+You MUST respond with a valid JSON object only. No extra text, no markdown, no code blocks.
+The JSON must have exactly this structure:
+{
+    "answer": "your answer here",
+    "references": [
+        {"id": "product_id", "description": "short description"}
+    ]
+}
+"""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": system_prompt}],
         temperature=0,
-        response_model=RAGGenerationResponse
     )
 
-    current_run = get_current_run_tree()
-    
-    if current_run:
-        current_run.metadata["usage_metadata"] = {
-            "input_tokens": raw_response.usage.prompt_tokens,
-            "output_tokens": raw_response.usage.completion_tokens,
-            "total_tokens": raw_response.usage.total_tokens
-        }
+    raw_text = response.choices[0].message.content
 
-    return response
+    # Strip markdown code blocks if present
+    raw_text = raw_text.strip()
+    if raw_text.startswith("```json"):
+        raw_text = raw_text[7:]
+    if raw_text.startswith("```"):
+        raw_text = raw_text[3:]
+    if raw_text.endswith("```"):
+        raw_text = raw_text[:-3]
+    raw_text = raw_text.strip()
+
+    try:
+        data = json.loads(raw_text)
+        return RAGGenerationResponse(
+            answer=data.get("answer", ""),
+            references=[RAGUsedContext(**ref) for ref in data.get("references", [])]
+        )
+    except (json.JSONDecodeError, Exception):
+        return RAGGenerationResponse(
+            answer=raw_text,
+            references=[]
+        )
 
 
 @traceable(
@@ -170,32 +175,37 @@ def rag_pipeline_wrapper(question, top_k=5):
     result = rag_pipeline(question, qdrant_client, top_k)
 
     used_context = []
-    dummy_vector = np.zeros(1536).tolist()
+    dummy_vector = np.zeros(3072).tolist()
 
     for item in result.get("references", []):
-        payload = qdrant_client.query_points(
-            collection_name="Amazon-items-collection-01-hybrid-search",
-            query=dummy_vector,
-            limit=1,
-            using="text-embedding-3-small",
-            with_payload=True,
-            query_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="parent_asin",
-                        match=MatchValue(value=item.id)
-                    )
-                ]
-            )
-        ).points[0].payload
-        image_url = payload.get("image")
-        price = payload.get("price")
-        if image_url:
-            used_context.append({
-                "image_url": image_url,
-                "price": price,
-                "description": item.description
-            })
+        try:
+            points = qdrant_client.query_points(
+                collection_name="Amazon-items-collection-01",
+                query=dummy_vector,
+                limit=1,
+                with_payload=True,
+                query_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="parent_asin",
+                            match=MatchValue(value=item.id)
+                        )
+                    ]
+                )
+            ).points
+
+            if points:
+                payload = points[0].payload
+                image_url = payload.get("image")
+                price = payload.get("price")
+                if image_url:
+                    used_context.append({
+                        "image_url": image_url,
+                        "price": price,
+                        "description": item.description
+                    })
+        except Exception:
+            continue
 
     return {
         "answer": result["answer"],
