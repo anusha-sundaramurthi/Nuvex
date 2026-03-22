@@ -79,19 +79,59 @@ st.markdown("""
         }
         .stTabs [data-baseweb="tab-panel"] { padding: 0.8rem 0 0 0 !important; }
 
-        /* ── NAVBAR — not fixed, just sticky within content area ── */
+        /* ── NAVBAR — truly fixed using Streamlit header slot ── */
+        /* Fix the Streamlit top header area */
+        [data-testid="stHeader"] {
+            background: #f7f5f2 !important;
+            border-bottom: 2px solid #e8e4df !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+            height: 4rem !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+
         .nuvex-navbar {
-            position: sticky;
-            top: 0;
-            z-index: 999;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0.8rem 0;
-            background: #f7f5f2;
+            padding: 0.6rem 0;
             border-bottom: 2px solid #e8e4df;
             margin-bottom: 1.2rem;
+            background: #f7f5f2;
+        }
+
+        /* Use Streamlit's own sticky header mechanism */
+        .stApp > header {
+            background: #f7f5f2 !important;
+        }
+
+        /* Make main content not overlap the header */
+        .block-container {
+            padding-top: 1rem !important;
+        }
+
+        /* The actual sticky navbar via Streamlit header injection */
+        #nuvex-header {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: 60px;
+            background: #f7f5f2;
+            border-bottom: 2px solid #e8e4df;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 99999;
+        }
+        /* offset body so content doesn't hide under fixed bar */
+        section.main > div:first-child {
+            padding-top: 70px !important;
+        }
+        section[data-testid="stSidebarContent"] {
+            padding-top: 70px !important;
         }
         .nuvex-logo {
             font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900;
@@ -416,7 +456,7 @@ if "trace_id" not in st.session_state:
 #  NAVBAR
 # ─────────────────────────────────────────────
 st.markdown("""
-    <div class="nuvex-navbar">
+    <div id="nuvex-header">
         <div>
             <div class="nuvex-logo">NUVEX</div>
             <div class="nuvex-tagline">✦ AI-Powered Shopping Assistant</div>
