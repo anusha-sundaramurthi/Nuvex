@@ -30,7 +30,7 @@ st.markdown("""
         }
 
         .block-container {
-            padding-top: 5rem !important;
+            padding-top: 0 !important;
             padding-bottom: 6rem !important;
             max-width: 920px !important;
         }
@@ -79,18 +79,19 @@ st.markdown("""
         }
         .stTabs [data-baseweb="tab-panel"] { padding: 0.8rem 0 0 0 !important; }
 
-        /* ── NAVBAR — fixed at top ── */
+        /* ── NAVBAR — not fixed, just sticky within content area ── */
         .nuvex-navbar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 9999;
+            position: sticky;
+            top: 0;
+            z-index: 999;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0.8rem 2rem;
+            padding: 0.8rem 0;
             background: #f7f5f2;
             border-bottom: 2px solid #e8e4df;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            margin-bottom: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         .nuvex-logo {
             font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900;
