@@ -170,7 +170,7 @@ def rag_pipeline(question, qdrant_client, top_k=5):
 
 def rag_pipeline_wrapper(question, top_k=5):
 
-    qdrant_client = QdrantClient(url="http://qdrant:6333")
+    qdrant_client = QdrantClient(url=config.QDRANT_URL)
 
     result = rag_pipeline(question, qdrant_client, top_k)
 
