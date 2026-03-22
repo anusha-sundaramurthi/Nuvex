@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Nuvex — AI Shopping Bot",
     page_icon="🛍️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown("""
@@ -35,7 +35,9 @@ st.markdown("""
             max-width: 920px !important;
         }
 
-        /* ── SIDEBAR ── */
+        /* ── SIDEBAR — hidden ── */
+        section[data-testid="stSidebar"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
         section[data-testid="stSidebar"] {
             background: #ffffff !important;
             border-right: 1.5px solid #e8e4df !important;
@@ -466,43 +468,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-#  SIDEBAR
-# ─────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("""
-        <div style="padding: 0.3rem 0 1rem 0;">
-            <div class="sidebar-brand-logo">NUVEX</div>
-            <div class="sidebar-brand-tag">✦ AI Shopping Assistant</div>
-        </div>
-    """, unsafe_allow_html=True)
-    st.divider()
 
-    suggestions_tab, shopping_cart_tab = st.tabs(["🔍 Suggestions", "🛒 Cart"])
-
-    with suggestions_tab:
-        if st.session_state.used_context:
-            for idx, item in enumerate(st.session_state.used_context):
-                st.caption(item.get('description', 'No description'))
-                if 'image_url' in item:
-                    st.image(item["image_url"], width=250)
-                st.caption(f"💰 **${item['price']}**")
-                st.divider()
-        else:
-            st.info("No suggestions yet — ask Nuvex something!")
-
-    with shopping_cart_tab:
-        if st.session_state.shopping_cart:
-            for idx, item in enumerate(st.session_state.shopping_cart):
-                st.caption(item.get('description', 'No description'))
-                if 'product_image_url' in item:
-                    st.image(item["product_image_url"], width=250)
-                st.caption(f"💰 {item['price']} {item['currency']}")
-                st.caption(f"📦 Qty: {item['quantity']}")
-                st.caption(f"🧾 Total: {item['total_price']} {item['currency']}")
-                st.divider()
-        else:
-            st.info("Your cart is empty")
 
 
 # ─────────────────────────────────────────────
