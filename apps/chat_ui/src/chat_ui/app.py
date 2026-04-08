@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Nuvex — AI Shopping Bot",
     page_icon="🛍️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown("""
@@ -22,7 +22,7 @@ st.markdown("""
 
         *, *::before, *::after { box-sizing: border-box; }
 
-        /* ── BASE — cream white background ── */
+        /* ── BASE ── */
         html, body, .stApp {
             background-color: #f7f5f2 !important;
             color: #1a1a2e !important;
@@ -30,20 +30,47 @@ st.markdown("""
         }
 
         .block-container {
-            padding-top: 0 !important;
+            padding-top: 80px !important;
             padding-bottom: 6rem !important;
-            max-width: 920px !important;
+            max-width: 800px !important;
         }
 
-        /* ── SIDEBAR — hidden ── */
-        section[data-testid="stSidebar"] { display: none !important; }
-        [data-testid="collapsedControl"] { display: none !important; }
+        /* ── HIDE STREAMLIT TOOLBAR ONLY, keep sidebar toggle ── */
+        footer { visibility: hidden; }
+        #MainMenu { visibility: hidden; }
+        [data-testid="stToolbar"] { visibility: hidden; }
+        [data-testid="stDecoration"] { display: none; }
+        /* Hide only the inner header content, NOT the header itself */
+        header[data-testid="stHeader"] { 
+            background: transparent !important;
+            height: 0px !important;
+        }
+
+        /* ── SIDEBAR TOGGLE BUTTON ── */
+        [data-testid="collapsedControl"] {
+            top: 68px !important;
+            visibility: visible !important;
+            display: flex !important;
+            z-index: 999999 !important;
+            background: #ffffff !important;
+            border-radius: 0 8px 8px 0 !important;
+            border: 1.5px solid #e8e4df !important;
+            border-left: none !important;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.08) !important;
+        }
+
+        /* ── SIDEBAR ── */
         section[data-testid="stSidebar"] {
             background: #ffffff !important;
             border-right: 1.5px solid #e8e4df !important;
             box-shadow: 2px 0 10px rgba(0,0,0,0.06) !important;
+            top: 20px !important;
+            height: calc(100vh - 60px) !important;
         }
-        section[data-testid="stSidebar"] > div { padding: 1.4rem 1rem !important; }
+        section[data-testid="stSidebar"] > div {
+            padding: 1.2rem 1rem !important;
+            padding-top: 1.2rem !important;
+        }
         section[data-testid="stSidebar"] * { font-family: 'Inter', sans-serif !important; }
         section[data-testid="stSidebar"] .stCaption,
         section[data-testid="stSidebar"] .stCaption p {
@@ -52,67 +79,26 @@ st.markdown("""
         section[data-testid="stSidebar"] hr {
             border: none !important; border-top: 1px solid #e8e4df !important; margin: 10px 0 !important;
         }
-        section[data-testid="stSidebar"] img { border-radius: 10px !important; border: 1px solid #e8e4df !important; }
+        section[data-testid="stSidebar"] img {
+            border-radius: 10px !important;
+            border: 1px solid #e8e4df !important;
+            width: 100% !important;
+        }
 
+        /* Sidebar brand */
         .sidebar-brand-logo {
             font-family: 'Outfit', sans-serif;
-            font-size: 1.8rem; font-weight: 900;
+            font-size: 1.6rem; font-weight: 900;
             background: linear-gradient(135deg, #7c3aed, #2563eb);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
             letter-spacing: 0.05em;
         }
         .sidebar-brand-tag {
             font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2em;
-            text-transform: uppercase; color: #aaa; margin-top: 2px;
+            text-transform: uppercase; color: #aaa; margin-top: 2px; margin-bottom: 8px;
         }
 
-        .stTabs [data-baseweb="tab-list"] {
-            background: #f0ede8 !important; border-radius: 10px !important;
-            padding: 3px !important; border: 1px solid #e0dbd4 !important; gap: 2px !important;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background: transparent !important; border: none !important;
-            border-radius: 7px !important; color: #888 !important;
-            font-size: 0.75rem !important; font-weight: 600 !important;
-        }
-        .stTabs [aria-selected="true"] {
-            background: #ffffff !important; color: #7c3aed !important;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
-        }
-        .stTabs [data-baseweb="tab-panel"] { padding: 0.8rem 0 0 0 !important; }
-
-        /* ── NAVBAR — truly fixed using Streamlit header slot ── */
-        /* Fix the Streamlit top header area */
-        [data-testid="stHeader"] {
-            background: #f7f5f2 !important;
-            border-bottom: 2px solid #e8e4df !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
-            height: 4rem !important;
-            display: flex !important;
-            align-items: center !important;
-        }
-
-        .nuvex-navbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.6rem 0;
-            border-bottom: 2px solid #e8e4df;
-            margin-bottom: 1.2rem;
-            background: #f7f5f2;
-        }
-
-        /* Use Streamlit's own sticky header mechanism */
-        .stApp > header {
-            background: #f7f5f2 !important;
-        }
-
-        /* Make main content not overlap the header */
-        .block-container {
-            padding-top: 1rem !important;
-        }
-
-        /* The actual sticky navbar via Streamlit header injection */
+        /* ── FIXED NAVBAR ── */
         #nuvex-header {
             position: fixed;
             top: 0;
@@ -125,15 +111,8 @@ st.markdown("""
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            z-index: 99999;
-        }
-        /* offset body so content doesn't hide under fixed bar */
-        section.main > div:first-child {
-            padding-top: 70px !important;
-        }
-        section[data-testid="stSidebarContent"] {
-            padding-top: 70px !important;
+            padding: 0 2rem 0 4rem;
+            z-index: 99998;
         }
         .nuvex-logo {
             font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900;
@@ -164,10 +143,10 @@ st.markdown("""
         /* ── BOT MESSAGE (LEFT) ── */
         .msg-row-bot {
             display: flex;
-            align-items: flex-end;
+            align-items: flex-start;
             gap: 14px;
             justify-content: flex-start;
-            padding-right: 15%;
+            padding-right: 10%;
         }
         .msg-avatar-bot {
             width: 42px; height: 42px; min-width: 42px; border-radius: 50%;
@@ -182,8 +161,8 @@ st.markdown("""
             border-radius: 4px 20px 20px 20px;
             padding: 14px 20px;
             color: #1a1a2e;
-            font-size: 1.1rem;
-            line-height: 1.9;
+            font-size: 1rem;
+            line-height: 1.8;
             font-weight: 400;
             box-shadow: 0 2px 10px rgba(0,0,0,0.07);
             word-break: break-word;
@@ -195,7 +174,7 @@ st.markdown("""
             align-items: flex-end;
             gap: 14px;
             justify-content: flex-end;
-            padding-left: 15%;
+            padding-left: 10%;
         }
         .msg-bubble-user {
             background: linear-gradient(135deg, #7c3aed, #2563eb);
@@ -203,8 +182,8 @@ st.markdown("""
             border-radius: 20px 4px 20px 20px;
             padding: 14px 20px;
             color: #ffffff;
-            font-size: 1.1rem;
-            line-height: 1.9;
+            font-size: 1rem;
+            line-height: 1.8;
             font-weight: 500;
             box-shadow: 0 4px 16px rgba(124,58,237,0.3);
             word-break: break-word;
@@ -273,7 +252,7 @@ st.markdown("""
             box-shadow: 0 4px 12px rgba(124,58,237,0.3) !important;
         }
 
-        /* ── CHAT INPUT BOTTOM BAR — nuke all dark backgrounds ── */
+        /* ── CHAT INPUT BOTTOM BAR ── */
         .stBottom { background-color: #f7f5f2 !important; }
         .stBottom > div { background-color: #f7f5f2 !important; }
         .stBottom > div > div { background-color: #f7f5f2 !important; }
@@ -328,9 +307,22 @@ st.markdown("""
         ::-webkit-scrollbar-thumb { background: #d4c8f0; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
 
-        footer { visibility: hidden; }
-        #MainMenu { visibility: hidden; }
-        header { visibility: hidden; }
+        /* ── TABS in sidebar ── */
+        .stTabs [data-baseweb="tab-list"] {
+            background: #f0ede8 !important; border-radius: 10px !important;
+            padding: 3px !important; border: 1px solid #e0dbd4 !important; gap: 2px !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background: transparent !important; border: none !important;
+            border-radius: 7px !important; color: #888 !important;
+            font-size: 0.75rem !important; font-weight: 600 !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #ffffff !important; color: #7c3aed !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+        }
+        .stTabs [data-baseweb="tab-panel"] { padding: 0.8rem 0 0 0 !important; }
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -455,6 +447,93 @@ if "trace_id" not in st.session_state:
 
 
 # ─────────────────────────────────────────────
+#  SIDEBAR — Product Suggestions
+# ─────────────────────────────────────────────
+with st.sidebar:
+
+    suggestions_tab, shopping_cart_tab = st.tabs(["🔍 Suggestions", "🛒 Cart"])
+
+    with suggestions_tab:
+        if st.session_state.used_context:
+            st.caption(f"🛍️ {len(st.session_state.used_context)} product(s) found")
+            for idx, item in enumerate(st.session_state.used_context):
+                image_url = item.get("image_url", "")
+                price = item.get("price")
+                description = item.get("description", "")
+
+                if image_url:
+                    st.image(image_url, use_container_width=True)
+
+                if description:
+                    st.markdown(
+                        f"<div style='font-size:0.8rem; color:#1a1a2e; font-weight:500; margin-top:6px; line-height:1.4;'>{description}</div>",
+                        unsafe_allow_html=True
+                    )
+
+                if price is not None:
+                    try:
+                        st.markdown(
+                            f"<div style='font-size:0.9rem; font-weight:700; color:#7c3aed; margin-top:4px;'>💰 ${float(price):.2f}</div>",
+                            unsafe_allow_html=True
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                if idx < len(st.session_state.used_context) - 1:
+                    st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div style='text-align:center; padding:2rem 0.5rem; color:#bbb;'>
+                    <div style='font-size:2rem;'>🛍️</div>
+                    <div style='font-size:0.82rem; margin-top:8px; font-weight:500; line-height:1.5;'>
+                        Ask me about products and<br>suggestions will appear here!
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+    with shopping_cart_tab:
+        if st.session_state.shopping_cart:
+            for idx, item in enumerate(st.session_state.shopping_cart):
+                if item.get("product_image_url"):
+                    st.image(item["product_image_url"], use_container_width=True)
+                if item.get("description"):
+                    st.markdown(
+                        f"<div style='font-size:0.8rem; color:#1a1a2e; font-weight:500; margin-top:4px;'>{item['description']}</div>",
+                        unsafe_allow_html=True
+                    )
+                price = item.get("price")
+                currency = item.get("currency", "USD")
+                quantity = item.get("quantity")
+                total = item.get("total_price")
+                if price:
+                    try:
+                        st.markdown(
+                            f"<div style='font-size:0.85rem; color:#7c3aed; font-weight:700; margin-top:4px;'>💰 ${float(price):.2f} {currency}</div>",
+                            unsafe_allow_html=True
+                        )
+                    except (ValueError, TypeError):
+                        pass
+                if quantity:
+                    st.caption(f"Qty: {quantity}")
+                if total:
+                    try:
+                        st.caption(f"Total: ${float(total):.2f} {currency}")
+                    except (ValueError, TypeError):
+                        pass
+                if idx < len(st.session_state.shopping_cart) - 1:
+                    st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div style='text-align:center; padding:2rem 0.5rem; color:#bbb;'>
+                    <div style='font-size:2rem;'>🛒</div>
+                    <div style='font-size:0.82rem; margin-top:8px; font-weight:500;'>
+                        Your cart is empty
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
 #  NAVBAR
 # ─────────────────────────────────────────────
 st.markdown("""
@@ -466,9 +545,6 @@ st.markdown("""
         <div class="nuvex-badge">✦ Powered by RAG + AI</div>
     </div>
 """, unsafe_allow_html=True)
-
-
-
 
 
 # ─────────────────────────────────────────────
