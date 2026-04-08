@@ -1,25 +1,26 @@
+import yaml
 from jinja2 import Template
+from langsmith import Client
 
 
-def prompt_template_config(path: str, template_name: str) -> Template:
-    """
-    Loads a prompt template. Since we don't have YAML files set up,
-    this returns a simple Jinja2 template for the RAG prompt.
-    """
+ls_client = Client()
 
-    rag_prompt = """You are a shopping assistant that can answer questions about the products in stock.
+def prompt_template_config(yaml_file, prompt_key):
 
-You will be given a question and a list of context.
+    with open(yaml_file, 'r') as file:
+        config = yaml.safe_load(file)
 
-Instructions:
-- You need to answer the question based on the provided context only.
-- Never use the word context and refer to it as the available products.
-- Be helpful, concise and friendly.
+    template_content = config['prompts'][prompt_key]
 
-Context:
-{{ preprocessed_context }}
+    template = Template(template_content)
 
-Question:
-{{ question }}"""
+    return template
 
-    return Template(rag_prompt)
+
+def prompt_template_registry(prompt_name):
+
+    template_content = ls_client.pull_prompt(prompt_name).messages[0].prompt.template
+
+    template = Template(template_content)
+
+    return template

@@ -18,6 +18,8 @@ dependencies = [
     "instructor>=1.0.0",
     "numpy>=1.26.0",
     "requests>=2.32.0",
+    "pyyaml>=6.0",
+    "fastembed>=0.7.4",
 ]
 
 [tool.uv.workspace]
@@ -36,4 +38,6 @@ dev = [
     "ragas>=0.4.2",
     "psycopg-binary>=3.3.2",
     "fastmcp>=2.14.4",
+    "pyyaml>=6.0",
+    "fastembed>=0.7.4",
 ]

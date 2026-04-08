@@ -10,6 +10,8 @@ COPY apps/api ./apps/api
 
 ENV UV_COMPILE_BYTECODE=1
 
+ENV UV_HTTP_TIMEOUT=120
+
 # Install dependencies without cache mount (Railway compatible)
 RUN uv sync --frozen --no-dev --package api
 
