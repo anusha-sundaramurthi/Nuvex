@@ -11,9 +11,12 @@ The system uses:
 • Retrieval-Augmented Generation (RAG)  
 • Qdrant Vector Database  
 • LLM via OpenAI / Groq / Google GenAI  
-• LangGraph Agent Pipeline  
+• LangGraph Agent Pipeline 
+• Structured Outputs via Instructor + Pydantic
+• Prompt Versioning via Jinja2 + LangSmith Registry
+• RAGAS Evaluation Framework
 
-to answer user questions about products, features, ratings, and comparisons — through a clean conversational chat interface.
+to answer user questions about products, features, ratings, and comparisons — through a clean conversational chat interface with a product image sidebar.
 
 ---
 
@@ -25,8 +28,9 @@ The main objective is to develop a system that:
 • Converts product descriptions into semantic embeddings  
 • Retrieves relevant products based on user query  
 • Generates grounded, accurate answers using an LLM  
-• Supports multi-turn conversations with follow-up context  
-• Displays results through a clean Streamlit chat UI  
+• Supports multi-turn conversations with follow-up context
+• Evaluates retrieval quality using RAGAS metrics
+• Displays results through a clean Streamlit chat UI with product image sidebar
 
 ---
 
@@ -43,6 +47,8 @@ The main objective is to develop a system that:
 | Streamlit | Chat Web Interface |
 | LangSmith | Observability & Tracing |
 | RAGAS | Retrieval Evaluation |
+| Jinja2 + YAML | Prompt Versioning & Management |
+| Cohere | Reranking Retrieved Results |
 | Docker + Docker Compose | Containerisation |
 | uv | Python Package Manager |
 | Git & GitHub | Version Control |
@@ -75,6 +81,13 @@ Nuvex returning the highest-rated product filtered by purchase count and rating 
 
 ---
 
+## 🖼️ Sidebar Product Images
+ 
+Product images, descriptions, and prices populate the sidebar automatically after each response.
+ 
+![Sidebar Images](assets/suggestions.png)
+ 
+---
 
 
 # 🗂 Project Structure
@@ -88,6 +101,9 @@ Nuvex/
 │   │       ├── main.py             # FastAPI entry point
 │   │       ├── agents/
 │   │       │   └── graph.py        # LangGraph RAG pipeline
+│   │       |   ├── retrieval_generation.py  # RAG pipeline (embed, retrieve, generate)
+│   │       |   ├── prompts/
+│   │       |   │   └── retrieval_generation.yaml  # Versioned prompt template
 │   │       └── evals/
 │   │           └── eval_retriever.py
 │   └── chat_ui/                    # Streamlit frontend (uv workspace member)
@@ -131,6 +147,7 @@ GROQ_API_KEY=your_groq_api_key
 GOOGLE_API_KEY=your_google_genai_api_key
 LANGSMITH_API_KEY=your_langsmith_api_key   # optional
 LANGSMITH_TRACING=true                      # optional
+CO_API_KEY=your_cohere_api_key             # optional, for reranking notebook
 ```
 
 ---
@@ -180,9 +197,17 @@ http://localhost:8501
 
 ✅ Semantic search on product embeddings for accurate retrieval
 
+✅ Hybrid search support with BM25 sparse vectors
+
+✅ Cohere reranking for improved result ordering
+
 ✅ Multi-turn conversation with follow-up question support
 
-✅ Grounded answers from LLM using retrieved product context
+✅ Prompt versioning via Jinja2 YAML templates + LangSmith registry (notebook 10)
+ 
+✅ Grounded answers with numbered product list + bullet point features
+ 
+✅ Product image sidebar — images populate in real-time after each response
 
 ✅ Support for multiple LLM providers (OpenAI, Groq, Google GenAI)
 
@@ -190,7 +215,7 @@ http://localhost:8501
 
 ✅ Observability and tracing via LangSmith
 
-✅ Retriever evaluation using RAGAS
+✅ RAGAS evaluation — Faithfulness, Response Relevancy, Context Precision & Recall
 
 ✅ Clean Streamlit chat interface
 
@@ -221,18 +246,43 @@ Streamlit Chat UI (Port 8501)
      ↓
 FastAPI Backend (Port 8000)
      ↓
+Gemini Embedding API
+(converts question to 3072-dim vector)
+     ↓
 Qdrant Vector DB (Port 6333)
-(finds top-k relevant product chunks)
+(finds top-k relevant products by cosine similarity)
      ↓
-LangGraph RAG Agent
-(injects retrieved context into LLM prompt)
+Jinja2 Prompt Template
+(injects retrieved product context into structured prompt)
      ↓
-LLM (OpenAI / Groq / Google GenAI)
-(generates grounded product answer)
+Groq LLM — llama-3.3-70b-versatile
+(generates grounded answer with product references as JSON)
      ↓
-Final Answer displayed in Streamlit UI
+Structured Output Parser (Pydantic)
+(extracts answer text + product IDs)
+     ↓
+Qdrant Image Lookup
+(fetches product image URLs + prices by ID)
+     ↓
+SSE Stream → Streamlit
+(answer rendered as HTML, images shown in sidebar)
 ```
 
+---
+
+## 📊 Evaluation (RAGAS)
+ 
+The system is evaluated using four RAGAS metrics:
+ 
+| Metric | What It Measures |
+| --- | --- |
+| **Faithfulness** | Is the answer grounded in the retrieved context? |
+| **Response Relevancy** | Is the answer relevant to the user's question? |
+| **Context Precision (ID-based)** | Are the right products retrieved? |
+| **Context Recall (ID-based)** | Are all relevant products retrieved? |
+ 
+The evaluation dataset is synthetically generated using Gemini and stored in LangSmith (notebook 04), then scored against the live RAG pipeline.
+ 
 ---
 
 ## 📦 Services Overview
@@ -264,7 +314,9 @@ All services communicate over the `nuvex-network` Docker bridge network.
 | `COLLECTION_NAME` | `Amazon-items-collection-01` | Qdrant collection to query |
 | `QDRANT_HOST` | `qdrant` | Qdrant service host |
 | `QDRANT_PORT` | `6333` | Qdrant service port |
-| LLM provider | OpenAI | Swap for Groq or Google GenAI |
+| `top_k` | `5` | Number of products retrieved per query |
+| LLM provider | Groq | Swap for OpenAI or Google GenAI |
+| Embedding model | Gemini `gemini-embedding-001` | 3072-dim dense embeddings |
 
 ---
 
@@ -286,6 +338,6 @@ https://github.com/anusha-sundaramurthi/Nuvex
 
 ## ⭐ Conclusion
 
-This project demonstrates a real-world implementation of Retrieval-Augmented Generation using LangGraph, Qdrant, and multi-provider LLM support — enabling accurate, grounded, and conversational product search for an Amazon product catalogue through a fully containerised, production-ready system.
+Nuvex demonstrates a production-ready implementation of Retrieval-Augmented Generation using LangGraph, Qdrant, and multi-provider LLM support. It goes beyond a basic RAG system by incorporating hybrid search, structured outputs with grounded references, prompt versioning, RAGAS evaluation, human feedback collection, and a polished Streamlit UI with real-time product image suggestions — all fully containerised with Docker Compose.
 
 ---
