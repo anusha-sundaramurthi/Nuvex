@@ -85,7 +85,7 @@ Nuvex returning the highest-rated product filtered by purchase count and rating 
  
 Product images, descriptions, and prices populate the sidebar automatically after each response.
  
-![Sidebar Images](assets/suggestions.png)
+![Sidebar Images](assets/Suggestions.png)
  
 ---
 
