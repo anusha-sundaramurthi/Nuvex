@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def format_answer_as_html(text: str) -> str:
     """
-    Convert the plain-text answer into clean HTML matching the Image 2 format:
+    Convert the plain-text answer into clean HTML:
     - Intro sentence as a paragraph
     - Numbered products as bold headers
     - Bullet features under each product as <ul><li>
@@ -24,19 +24,15 @@ def format_answer_as_html(text: str) -> str:
     # Safety: if raw JSON leaked through, extract answer field
     if text.strip().startswith("{"):
         try:
-            # First fix multiline strings then parse
             fixed = text.replace('\r\n', '\n')
             data = json.loads(fixed)
             if isinstance(data, dict) and "answer" in data:
                 text = data["answer"]
         except (json.JSONDecodeError, Exception):
-            # Try extracting answer value with regex as last resort
             answer_match = re.search(r'"answer"\s*:\s*"(.*?)"(?=\s*,\s*"references")', text, re.DOTALL)
             if answer_match:
                 text = answer_match.group(1).replace('\\n', '\n')
-            # else just render whatever we have
 
-    # Handle both real newlines AND literal \n strings from LLM
     text = text.replace('\\n', '\n')
 
     lines = text.split('\n')
@@ -52,14 +48,12 @@ def format_answer_as_html(text: str) -> str:
                 in_list = False
             continue
 
-        # Detect bullet lines: •, *, or - at the start
         is_bullet = (
             stripped.startswith('• ') or
             stripped.startswith('* ') or
             stripped.startswith('- ')
         )
 
-        # Detect numbered product lines like "1. Product Name" or "1) Product Name"
         numbered_match = re.match(r'^(\d+)[.)]\s+(.+)$', stripped)
 
         if numbered_match:
