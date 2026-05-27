@@ -89,6 +89,24 @@ Product images, descriptions, and prices populate the sidebar automatically afte
  
 ---
 
+## 🔀 Query Rewriting and Multi Intent Search
+
+### Intent Router — Off-topic Question Blocked
+
+Nuvex blocking a non-shopping question instantly without hitting the retrieval pipeline.
+
+![Intent Router Block](assets/intent_router_block.png)
+
+---
+
+### Multi Intent Search — Laptop, Mouse and Keyboard
+
+Nuvex handling a multi-product query by splitting it into parallel searches and returning all three products with full specifications.
+
+![Multi Intent Result](assets/multi_intent_result.png)
+
+---
+
 
 # 🗂 Project Structure
 
@@ -217,6 +235,10 @@ http://localhost:8501
 
 ✅ RAGAS evaluation — Faithfulness, Response Relevancy, Context Precision & Recall
 
+✅ Intent router — off-topic questions blocked before retrieval
+
+✅ Query rewriting — multi-intent queries split into focused parallel searches
+
 ✅ Clean Streamlit chat interface
 
 ✅ Fully containerised with Docker Compose
@@ -246,17 +268,23 @@ Streamlit Chat UI (Port 8501)
      ↓
 FastAPI Backend (Port 8000)
      ↓
+Intent Router (Groq LLM)
+(classifies question as shopping-related or off-topic)
+     ↓ (off-topic → blocked immediately, no retrieval)
+Query Expansion Node (Groq LLM)
+(splits multi-intent query into focused sub-queries)
+     ↓
+Parallel Retrieval via LangGraph Send()
+(one Qdrant search per sub-query, all running simultaneously)
+     ↓
 Gemini Embedding API
-(converts question to 3072-dim vector)
+(converts each sub-query to 3072-dim vector)
      ↓
 Qdrant Vector DB (Port 6333)
-(finds top-k relevant products by cosine similarity)
+(finds top-k relevant products per sub-query)
      ↓
-Jinja2 Prompt Template
-(injects retrieved product context into structured prompt)
-     ↓
-Groq LLM — llama-3.3-70b-versatile
-(generates grounded answer with product references as JSON)
+Aggregator Node (Groq LLM)
+(combines all retrieved results, generates grounded answer)
      ↓
 Structured Output Parser (Pydantic)
 (extracts answer text + product IDs)
@@ -339,5 +367,7 @@ https://github.com/anusha-sundaramurthi/Nuvex
 ## ⭐ Conclusion
 
 Nuvex demonstrates a production-ready implementation of Retrieval-Augmented Generation using LangGraph, Qdrant, and multi-provider LLM support. It goes beyond a basic RAG system by incorporating hybrid search, structured outputs with grounded references, prompt versioning, RAGAS evaluation, human feedback collection, and a polished Streamlit UI with real-time product image suggestions — all fully containerised with Docker Compose.
+
+The system has been further upgraded with an **intent router** that blocks off-topic questions before any retrieval happens, and **query rewriting with parallel retrieval** using LangGraph's `Send()` API — enabling multi-intent queries like *"a laptop, a mouse and a keyboard"* to be split into focused parallel searches and answered comprehensively in a single response.
 
 ---

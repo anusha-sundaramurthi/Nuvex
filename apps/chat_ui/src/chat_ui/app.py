@@ -64,7 +64,7 @@ st.markdown("""
             background: #ffffff !important;
             border-right: 1.5px solid #e8e4df !important;
             box-shadow: 2px 0 10px rgba(0,0,0,0.06) !important;
-            top: 20px !important;
+            top: 60px !important;
             height: calc(100vh - 60px) !important;
         }
         section[data-testid="stSidebar"] > div {
@@ -112,7 +112,7 @@ st.markdown("""
             align-items: center;
             justify-content: space-between;
             padding: 0 2rem 0 4rem;
-            z-index: 99998;
+            z-index: 999999;
         }
         .nuvex-logo {
             font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 900;
