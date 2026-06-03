@@ -2,7 +2,7 @@ metadata:
   name: Amazon Items QnA Agent Prompt
   version: 1.0.0
   description: QnA Agent Prompt for Amazon Items RAG Pipeline
-  author: Aurimas Griciunas
+  author: Anusha Sundaramurthi
 
 prompts:
 

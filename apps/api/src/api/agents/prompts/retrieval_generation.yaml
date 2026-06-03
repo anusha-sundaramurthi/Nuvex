@@ -2,7 +2,7 @@ metadata:
   name: Retrieval Generation Prompt
   version: 1.0.0
   description: Retrieval Generation Prompt for RAG Pipeline
-  author: Aurimas Griciunas
+  author: Anusha Sundaramurthi
 
 prompts:
 

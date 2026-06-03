@@ -2,7 +2,7 @@ metadata:
   name: Coordinator Agent Prompt
   version: 1.0.0
   description: Coordinator Agent Prompt for Shopping Cart RAG Pipeline
-  author: Aurimas Griciunas
+  author: Anusha Sundaramurthi
 
 prompts:
 

@@ -2,7 +2,7 @@ metadata:
   name: Warehouse Manager Agent Prompt
   version: 1.0.0
   description: Warehouse Manager Agent Prompt for Warehouse Manager RAG Pipeline
-  author: Aurimas Griciunas
+  author: Anusha Sundaramurthi
 
 prompts:
 

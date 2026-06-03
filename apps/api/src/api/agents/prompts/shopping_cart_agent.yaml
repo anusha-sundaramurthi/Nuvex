@@ -2,7 +2,7 @@ metadata:
   name: Shopping Cart Agent Prompt
   version: 1.0.0
   description: Shopping Cart Agent Prompt for Shopping Cart RAG Pipeline
-  author: Aurimas Griciunas
+  author: Anusha Sundaramurthi
 
 prompts:
 
