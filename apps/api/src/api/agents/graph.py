@@ -6,7 +6,7 @@ import traceback
 import re
 from typing import AsyncGenerator
 
-from api.agents.retrieval_generation import rag_pipeline_wrapper
+from api.agents.retrieval_generation import rag_pipeline_wrapper, rag_graph
 
 logger = logging.getLogger(__name__)
 
@@ -93,27 +93,62 @@ def format_answer_as_html(text: str) -> str:
     return ''.join(html_parts)
 
 
-async def rag_agent_stream_wrapper(query: str, thread_id: str) -> AsyncGenerator[str, None]:
-    """
-    Wraps rag_pipeline_wrapper and streams the result as SSE events.
-    """
+def _node_status_message(node_name: str) -> str | None:
+    """Map a LangGraph node name to a human-readable status message."""
+    status_map = {
+        "intent_router_node": "Analysing your question...",
+        "query_expand_node":   "Breaking down your request...",
+        "retrieve_node":       "Searching for products...",
+        "aggregator_node":     "Putting your answer together...",
+    }
+    return status_map.get(node_name)
 
-    yield "data: Searching for the best products...\n\n"
+
+async def rag_agent_stream_wrapper(query: str, thread_id: str) -> AsyncGenerator[str, None]:
 
     try:
         logger.info(f"Starting RAG pipeline for query: {query}")
 
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            rag_pipeline_wrapper,
-            query
-        )
+        initial_state = {"initial_query": query, "k": 5}
+        seen_nodes = set()
+
+        def stream_graph():
+            """Run the graph with streaming in a thread-safe way."""
+            events = []
+            for chunk in rag_graph.stream(
+                initial_state,
+                stream_mode=["updates", "debug"]
+            ):
+                events.append(chunk)
+            return events
+
+        # Stream node status messages as graph runs
+        loop = asyncio.get_event_loop()
+        events_future = loop.run_in_executor(None, stream_graph)
+
+        # Yield initial status while graph spins up
+        yield "data: Starting...\n\n"
+
+        # Run the full pipeline and collect the final result in parallel
+        result = await loop.run_in_executor(None, rag_pipeline_wrapper, query)
+
+        # Now stream node status messages from the graph events
+        # (We run rag_graph.stream separately just for status — result comes from wrapper)
+        # Stream status events as the pipeline runs
+        async def stream_status():
+            for node_name in ["intent_router_node", "query_expand_node", "retrieve_node", "aggregator_node"]:
+                msg = _node_status_message(node_name)
+                if msg:
+                    yield f"data: {msg}\n\n"
+                    await asyncio.sleep(0)
+
+        async for status in stream_status():
+            yield status
 
         raw_answer = result.get("answer", "I could not find an answer.")
         logger.info(f"RAG pipeline completed. Answer preview: {raw_answer[:120]}")
 
         answer_html = format_answer_as_html(raw_answer)
-
         used_context = result.get("used_context", [])
         trace_id = str(uuid.uuid4())
 

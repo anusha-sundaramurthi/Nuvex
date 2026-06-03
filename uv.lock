@@ -17,7 +17,9 @@ resolution-markers = [
 members = [
     "api",
     "chat-ui",
+    "items-mcp-server",
     "nuvex",
+    "reviews-mcp-server",
 ]
 
 [[package]]
@@ -193,11 +195,13 @@ source = { editable = "apps/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "fastembed" },
+    { name = "fastmcp" },
     { name = "google-genai" },
     { name = "groq" },
     { name = "instructor" },
     { name = "jinja2" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
     { name = "langsmith" },
     { name = "numpy" },
     { name = "openai" },
@@ -205,6 +209,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyyaml" },
     { name = "qdrant-client" },
+    { name = "tiktoken" },
     { name = "uvicorn" },
 ]
 
@@ -212,11 +217,13 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "fastembed", specifier = ">=0.7.4" },
+    { name = "fastmcp" },
     { name = "google-genai", specifier = ">=1.57.0" },
     { name = "groq", specifier = ">=1.0.0" },
     { name = "instructor", specifier = ">=1.0.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "langgraph", specifier = ">=1.0.5" },
+    { name = "langgraph-checkpoint-postgres" },
     { name = "langsmith", specifier = ">=0.1.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "openai", specifier = ">=2.15.0" },
@@ -224,6 +231,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "qdrant-client", specifier = ">=1.9.0" },
+    { name = "tiktoken" },
     { name = "uvicorn", specifier = ">=0.40.0" },
 ]
 
@@ -1490,6 +1498,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ef/4c/5dd1d8af08107f88c7f741ead7a40854b8ac24ddf9ae850afbcf698aa552/ipython_pygments_lexers-1.1.1.tar.gz", hash = "sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81", size = 8393, upload-time = "2025-01-17T11:24:34.505Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/33/1f075bf72b0b747cb3288d011319aaf64083cf2efef8354174e3ed4540e2/ipython_pygments_lexers-1.1.1-py3-none-any.whl", hash = "sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c", size = 8074, upload-time = "2025-01-17T11:24:33.271Z" },
+]
+
+[[package]]
+name = "items-mcp-server"
+version = "0.1.0"
+source = { editable = "apps/items_mcp_server" }
+dependencies = [
+    { name = "fastmcp" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "qdrant-client" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastmcp", specifier = ">=2.14.4" },
+    { name = "openai", specifier = ">=2.15.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pydantic-settings", specifier = ">=2.12.0" },
+    { name = "qdrant-client", specifier = ">=1.16.2" },
 ]
 
 [[package]]
@@ -3823,6 +3852,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6", size = 206888, upload-time = "2023-05-01T04:11:33.229Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/51/d4db610ef29373b879047326cbf6fa98b6c1969d6f6dc423279de2b1be2c/requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06", size = 54481, upload-time = "2023-05-01T04:11:28.427Z" },
+]
+
+[[package]]
+name = "reviews-mcp-server"
+version = "0.1.0"
+source = { editable = "apps/reviews_mcp_server" }
+dependencies = [
+    { name = "fastmcp" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "qdrant-client" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastmcp", specifier = ">=2.14.4" },
+    { name = "openai", specifier = ">=2.15.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pydantic-settings", specifier = ">=2.12.0" },
+    { name = "qdrant-client", specifier = ">=1.16.2" },
 ]
 
 [[package]]

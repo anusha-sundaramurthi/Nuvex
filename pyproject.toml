@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["apps/api", "apps/chat_ui"]
+members = ["apps/api", "apps/chat_ui", "apps/items_mcp_server", "apps/reviews_mcp_server"]
 
 [dependency-groups]
 dev = [
