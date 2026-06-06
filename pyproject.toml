@@ -20,6 +20,7 @@ dependencies = [
     "requests>=2.32.0",
     "pyyaml>=6.0",
     "fastembed>=0.7.4",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [tool.uv.workspace]

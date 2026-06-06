@@ -193,6 +193,7 @@ name = "api"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
+    { name = "cohere" },
     { name = "fastapi" },
     { name = "fastembed" },
     { name = "fastmcp" },
@@ -205,6 +206,8 @@ dependencies = [
     { name = "langsmith" },
     { name = "numpy" },
     { name = "openai" },
+    { name = "psycopg-binary" },
+    { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyyaml" },
@@ -215,6 +218,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cohere", specifier = ">=5.20.1" },
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "fastembed", specifier = ">=0.7.4" },
     { name = "fastmcp" },
@@ -227,6 +231,8 @@ requires-dist = [
     { name = "langsmith", specifier = ">=0.1.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "openai", specifier = ">=2.15.0" },
+    { name = "psycopg-binary", specifier = ">=3.3.2" },
+    { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -2575,6 +2581,7 @@ dependencies = [
     { name = "langsmith" },
     { name = "numpy" },
     { name = "openai" },
+    { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
@@ -2610,6 +2617,7 @@ requires-dist = [
     { name = "langsmith", specifier = ">=0.6.2" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "openai", specifier = ">=2.15.0" },
+    { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },

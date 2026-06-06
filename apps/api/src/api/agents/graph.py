@@ -1,180 +1,308 @@
+from qdrant_client import QdrantClient
+from pydantic import BaseModel, Field
+from operator import add
+import numpy as np
 import json
-import uuid
-import asyncio
-import logging
-import traceback
-import re
-from typing import AsyncGenerator
-
-from api.agents.retrieval_generation import rag_pipeline_wrapper, rag_graph
-
-logger = logging.getLogger(__name__)
+from qdrant_client.models import Filter, FieldCondition, MatchValue
+from typing import Annotated, List, Any, Dict
+from api.agents.agents import ToolCall, RAGUsedContext, Delegation, product_qa_agent, shopping_cart_agent, warehouse_manager_agent, coordinator_agent
+from api.agents.tools import get_formatted_items_context, get_formatted_reviews_context, add_to_shopping_cart, remove_from_cart, get_shopping_cart, check_warehouse_availability, reserve_warehouse_items
+from api.agents.utils.utils import get_tool_descriptions
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.postgres import PostgresSaver
 
 
-def format_answer_as_html(text: str) -> str:
-    """
-    Convert the plain-text answer into clean HTML:
-    - Intro sentence as a paragraph
-    - Numbered products as bold headers
-    - Bullet features under each product as <ul><li>
-    """
-    if not text:
-        return text
+class AgentProperties(BaseModel):    
+    iteration: int = 0
+    final_answer: bool = False
+    available_tools: List[Dict[str, Any]] = []
+    tool_calls: List[ToolCall] = []
 
-    # Safety: if raw JSON leaked through, extract answer field
-    if text.strip().startswith("{"):
+
+class CoordinatorAgentProperties(BaseModel):    
+    iteration: int = 0
+    final_answer: bool = False
+    plan: List[Delegation] = []
+    next_agent: str = ""
+
+
+class State(BaseModel):
+    messages: Annotated[List[Any], add] = []
+    user_intent: str = ""
+    product_qa_agent: AgentProperties = Field(default_factory=AgentProperties)
+    shopping_cart_agent: AgentProperties = Field(default_factory=AgentProperties)
+    warehouse_manager_agent: AgentProperties = Field(default_factory=AgentProperties)
+    coordinator_agent: CoordinatorAgentProperties = Field(default_factory=CoordinatorAgentProperties)
+    answer: str = ""
+    references: Annotated[List[RAGUsedContext], add] = []
+    user_id: str = ""
+    cart_id: str = ""
+    trace_id: str = ""
+
+
+#### Edges
+
+def product_qa_agent_tool_edge(state) -> str:
+    if state.product_qa_agent.final_answer:
+        return "end"
+    elif state.product_qa_agent.iteration > 4:
+        return "end"
+    elif len(state.product_qa_agent.tool_calls) > 0:
+        return "tools"
+    else:
+        return "end"
+
+
+def shopping_cart_agent_tool_edge(state) -> str:
+    if state.shopping_cart_agent.final_answer:
+        return "end"
+    elif state.shopping_cart_agent.iteration > 2:
+        return "end"
+    elif len(state.shopping_cart_agent.tool_calls) > 0:
+        return "tools"
+    else:
+        return "end"
+
+
+def warehouse_manager_agent_tool_edge(state) -> str:
+    if state.warehouse_manager_agent.final_answer:
+        return "end"
+    elif state.warehouse_manager_agent.iteration > 2:
+        return "end"
+    elif len(state.warehouse_manager_agent.tool_calls) > 0:
+        return "tools"
+    else:
+        return "end"
+
+
+def coordinator_agent_edge(state):
+    if state.coordinator_agent.iteration > 3:
+        return "end"
+    elif state.coordinator_agent.final_answer and len(state.coordinator_agent.plan) == 0:
+        return "end"
+    elif state.coordinator_agent.next_agent == "product_qa_agent":
+        return "product_qa_agent"
+    elif state.coordinator_agent.next_agent == "shopping_cart_agent":
+        return "shopping_cart_agent"
+    elif state.coordinator_agent.next_agent == "warehouse_manager_agent":
+        return "warehouse_manager_agent"
+    else:
+        return "end"
+
+
+#### Workflow
+
+workflow = StateGraph(State)
+
+product_qa_agent_tools = [get_formatted_items_context, get_formatted_reviews_context]
+product_qa_agent_tool_node = ToolNode(product_qa_agent_tools)
+product_qa_agent_tool_descriptions = get_tool_descriptions(product_qa_agent_tools)
+
+shopping_cart_agent_tools = [add_to_shopping_cart, remove_from_cart, get_shopping_cart]
+shopping_cart_agent_tool_node = ToolNode(shopping_cart_agent_tools)
+shopping_cart_agent_tool_descriptions = get_tool_descriptions(shopping_cart_agent_tools)
+
+warehouse_manager_agent_tools = [check_warehouse_availability, reserve_warehouse_items]
+warehouse_manager_agent_tool_node = ToolNode(warehouse_manager_agent_tools)
+warehouse_manager_agent_tool_descriptions = get_tool_descriptions(warehouse_manager_agent_tools)
+
+workflow.add_node("product_qa_agent", product_qa_agent)
+workflow.add_node("shopping_cart_agent", shopping_cart_agent)
+workflow.add_node("warehouse_manager_agent", warehouse_manager_agent)
+workflow.add_node("coordinator_agent", coordinator_agent)
+
+workflow.add_node("product_qa_agent_tool_node", product_qa_agent_tool_node)
+workflow.add_node("shopping_cart_agent_tool_node", shopping_cart_agent_tool_node)
+workflow.add_node("warehouse_manager_agent_tool_node", warehouse_manager_agent_tool_node)
+
+workflow.add_edge(START, "coordinator_agent")
+
+workflow.add_conditional_edges(
+    "coordinator_agent",
+    coordinator_agent_edge,
+    {
+        "product_qa_agent": "product_qa_agent",
+        "shopping_cart_agent": "shopping_cart_agent",
+        "warehouse_manager_agent": "warehouse_manager_agent",
+        "end": END
+    }
+)
+
+workflow.add_conditional_edges(
+    "product_qa_agent",
+    product_qa_agent_tool_edge,
+    {
+        "tools": "product_qa_agent_tool_node",
+        "end": "coordinator_agent"
+    }
+)
+
+workflow.add_conditional_edges(
+    "shopping_cart_agent",
+    shopping_cart_agent_tool_edge,
+    {
+        "tools": "shopping_cart_agent_tool_node",
+        "end": "coordinator_agent"
+    }
+)
+
+workflow.add_conditional_edges(
+    "warehouse_manager_agent",
+    warehouse_manager_agent_tool_edge,
+    {
+        "tools": "warehouse_manager_agent_tool_node",
+        "end": "coordinator_agent"
+    }
+)
+
+workflow.add_edge("product_qa_agent_tool_node", "product_qa_agent")
+workflow.add_edge("shopping_cart_agent_tool_node", "shopping_cart_agent")
+workflow.add_edge("warehouse_manager_agent_tool_node", "warehouse_manager_agent")
+
+
+#### Agent Execution Function
+
+def rag_agent_stream_wrapper(question: str, thread_id: str):
+
+    def _string_for_sse(message: str):
+        return f"data: {message}\n\n"
+
+    def _process_graph_event(chunk):
+
+        def _is_node_start(chunk):
+            return chunk[1].get("type") == "task"
+
+        def _tool_to_text(tool_call):
+            if tool_call.name == "get_formatted_items_context":
+                return f"Looking for items: {tool_call.arguments.get('query', '')}."
+            elif tool_call.name == "get_formatted_reviews_context":
+                return "Fetching user reviews..."
+            else:
+                return f"Unknown tool: {tool_call.name}."
+
+        if _is_node_start(chunk):
+            if chunk[1].get("payload", {}).get("name") == "coordinator_agent":
+                return "Planning your request..."
+            if chunk[1].get("payload", {}).get("name") == "product_qa_agent":
+                return "Searching for products..."
+            if chunk[1].get("payload", {}).get("name") == "shopping_cart_agent":
+                return "Managing your cart..."
+            if chunk[1].get("payload", {}).get("name") == "warehouse_manager_agent":
+                return "Checking warehouse availability..."
+            if chunk[1].get("payload", {}).get("name") == "product_qa_agent_tool_node":
+                tool_calls = chunk[1].get("payload", {}).get("input", {})
+                if hasattr(tool_calls, "tool_calls"):
+                    message = " ".join([_tool_to_text(tc) for tc in tool_calls.tool_calls])
+                    return message
+        return False
+
+    qdrant_client = QdrantClient(url="http://qdrant:6333")
+
+    initial_state = {
+        "messages": [{"role": "user", "content": question}],
+        "product_qa_agent": {
+            "iteration": 0,
+            "final_answer": False,
+            "available_tools": product_qa_agent_tool_descriptions,
+            "tool_calls": []
+        },
+        "shopping_cart_agent": {
+            "iteration": 0,
+            "final_answer": False,
+            "available_tools": shopping_cart_agent_tool_descriptions,
+            "tool_calls": []
+        },
+        "warehouse_manager_agent": {
+            "iteration": 0,
+            "final_answer": False,
+            "available_tools": warehouse_manager_agent_tool_descriptions,
+            "tool_calls": []
+        },
+        "coordinator_agent": {
+            "iteration": 0,
+            "final_answer": False,
+            "plan": [],
+            "next_agent": ""
+        },
+        "user_id": thread_id,
+        "cart_id": thread_id
+    }
+
+    config = {
+        "configurable": {
+            "thread_id": thread_id
+        }
+    }
+
+    with PostgresSaver.from_conn_string("postgresql://langgraph_user:langgraph_password@postgres:5432/langgraph_db") as checkpointer:
+
+        graph = workflow.compile(checkpointer=checkpointer)
+
+        for chunk in graph.stream(
+            initial_state,
+            config=config,
+            stream_mode=["debug", "values"]
+        ):
+            processed_chunk = _process_graph_event(chunk)
+
+            if processed_chunk:
+                yield _string_for_sse(processed_chunk)
+
+            if chunk[0] == "values":
+                result = chunk[1]
+
+    used_context = []
+    dummy_vector = np.zeros(3072).tolist()
+
+    for item in result.get("references", []):
         try:
-            fixed = text.replace('\r\n', '\n')
-            data = json.loads(fixed)
-            if isinstance(data, dict) and "answer" in data:
-                text = data["answer"]
-        except (json.JSONDecodeError, Exception):
-            answer_match = re.search(r'"answer"\s*:\s*"(.*?)"(?=\s*,\s*"references")', text, re.DOTALL)
-            if answer_match:
-                text = answer_match.group(1).replace('\\n', '\n')
-
-    text = text.replace('\\n', '\n')
-
-    lines = text.split('\n')
-    html_parts = []
-    in_list = False
-    product_counter = 0
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            if in_list:
-                html_parts.append('</ul>')
-                in_list = False
+            points = qdrant_client.query_points(
+                collection_name="Amazon-items-collection-01-hybrid-search",
+                query=dummy_vector,
+                limit=1,
+                using="text-embedding-3-small",
+                with_payload=True,
+                query_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="parent_asin",
+                            match=MatchValue(value=item.id)
+                        )
+                    ]
+                )
+            ).points[0].payload
+            image_url = points.get("image")
+            price = points.get("price")
+            if image_url:
+                used_context.append({
+                    "image_url": image_url,
+                    "price": price,
+                    "description": item.description
+                })
+        except Exception:
             continue
 
-        is_bullet = (
-            stripped.startswith('• ') or
-            stripped.startswith('* ') or
-            stripped.startswith('- ')
-        )
+    shopping_cart = get_shopping_cart(thread_id, thread_id)
+    shopping_cart_items = [
+        {
+            "price": float(item.get("price")) if item.get("price") else None,
+            "quantity": item.get("quantity"),
+            "currency": item.get("currency"),
+            "product_image_url": item.get("product_image_url"),
+            "total_price": float(item.get("total_price")) if item.get("total_price") else None
+        }
+        for item in shopping_cart
+    ]
 
-        numbered_match = re.match(r'^(\d+)[.)]\s+(.+)$', stripped)
-
-        if numbered_match:
-            if in_list:
-                html_parts.append('</ul>')
-                in_list = False
-            product_counter += 1
-            product_name = numbered_match.group(2)
-            product_name = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', product_name)
-            html_parts.append(
-                f'<p style="margin:14px 0 4px 0; font-weight:700; font-size:1rem; color:#1a1a2e;">'
-                f'{product_counter}. {product_name}</p>'
-            )
-
-        elif is_bullet:
-            if not in_list:
-                html_parts.append('<ul style="margin:4px 0 8px 20px; padding:0;">')
-                in_list = True
-            content = stripped[2:].strip()
-            content = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', content)
-            html_parts.append(
-                f'<li style="margin-bottom:4px; line-height:1.6; color:#333;">{content}</li>'
-            )
-
-        else:
-            if in_list:
-                html_parts.append('</ul>')
-                in_list = False
-            formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', stripped)
-            html_parts.append(
-                f'<p style="margin:6px 0; line-height:1.7; color:#1a1a2e;">{formatted}</p>'
-            )
-
-    if in_list:
-        html_parts.append('</ul>')
-
-    return ''.join(html_parts)
-
-
-def _node_status_message(node_name: str) -> str | None:
-    """Map a LangGraph node name to a human-readable status message."""
-    status_map = {
-        "intent_router_node": "Analysing your question...",
-        "query_expand_node":   "Breaking down your request...",
-        "retrieve_node":       "Searching for products...",
-        "aggregator_node":     "Putting your answer together...",
-    }
-    return status_map.get(node_name)
-
-
-async def rag_agent_stream_wrapper(query: str, thread_id: str) -> AsyncGenerator[str, None]:
-
-    try:
-        logger.info(f"Starting RAG pipeline for query: {query}")
-
-        initial_state = {"initial_query": query, "k": 5}
-        seen_nodes = set()
-
-        def stream_graph():
-            """Run the graph with streaming in a thread-safe way."""
-            events = []
-            for chunk in rag_graph.stream(
-                initial_state,
-                stream_mode=["updates", "debug"]
-            ):
-                events.append(chunk)
-            return events
-
-        # Stream node status messages as graph runs
-        loop = asyncio.get_event_loop()
-        events_future = loop.run_in_executor(None, stream_graph)
-
-        # Yield initial status while graph spins up
-        yield "data: Starting...\n\n"
-
-        # Run the full pipeline and collect the final result in parallel
-        result = await loop.run_in_executor(None, rag_pipeline_wrapper, query)
-
-        # Now stream node status messages from the graph events
-        # (We run rag_graph.stream separately just for status — result comes from wrapper)
-        # Stream status events as the pipeline runs
-        async def stream_status():
-            for node_name in ["intent_router_node", "query_expand_node", "retrieve_node", "aggregator_node"]:
-                msg = _node_status_message(node_name)
-                if msg:
-                    yield f"data: {msg}\n\n"
-                    await asyncio.sleep(0)
-
-        async for status in stream_status():
-            yield status
-
-        raw_answer = result.get("answer", "I could not find an answer.")
-        logger.info(f"RAG pipeline completed. Answer preview: {raw_answer[:120]}")
-
-        answer_html = format_answer_as_html(raw_answer)
-        used_context = result.get("used_context", [])
-        trace_id = str(uuid.uuid4())
-
-        final_payload = {
+    yield _string_for_sse(json.dumps(
+        {
             "type": "final_result",
             "data": {
-                "answer": answer_html,
+                "answer": result.get("answer", ""),
                 "used_context": used_context,
-                "trace_id": trace_id,
-                "shopping_cart": []
+                "trace_id": result.get("trace_id", ""),
+                "shopping_cart": shopping_cart_items
             }
         }
-
-        yield f"data: {json.dumps(final_payload)}\n\n"
-
-    except Exception as e:
-        error_details = traceback.format_exc()
-        logger.error(f"RAG pipeline error: {str(e)}\n{error_details}")
-
-        error_payload = {
-            "type": "final_result",
-            "data": {
-                "answer": f"Sorry, something went wrong: {str(e)}",
-                "used_context": [],
-                "trace_id": str(uuid.uuid4()),
-                "shopping_cart": []
-            }
-        }
-        yield f"data: {json.dumps(error_payload)}\n\n"
+    ))

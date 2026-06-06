@@ -671,7 +671,18 @@ if prompt := st.chat_input("Ask Nuvex about products, deals, comparisons..."):
                         st.session_state.feedback_submission_status = None
                         break
                 except json.JSONDecodeError:
-                    pass
+                    # ── Plain text status message — update typing bubble ──
+                    if data.strip():
+                        typing_placeholder.markdown(f"""
+                        <div class="typing-row">
+                            <div class="msg-avatar-bot">🛍️</div>
+                            <div class="typing-bubble" style="gap:10px; padding: 12px 20px;">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <span style="font-size:0.85rem; color:#7c3aed; font-weight:600; margin-left:6px;">{data.strip()}</span>
+                            </div>
+                        </div>""", unsafe_allow_html=True)
 
         typing_placeholder.empty()
         if answer:

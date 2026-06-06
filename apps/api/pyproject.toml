@@ -22,7 +22,10 @@ dependencies = [
     "langgraph>=1.0.5",
     "langgraph-checkpoint-postgres",  
     "fastmcp",                          
-    "tiktoken",                        
+    "tiktoken",  
+    "psycopg-binary>=3.3.2",
+    "psycopg2-binary>=2.9.11",
+    "cohere>=5.20.1",                      
 ]
 
 
