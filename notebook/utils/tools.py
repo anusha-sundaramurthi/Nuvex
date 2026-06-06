@@ -238,26 +238,20 @@ def add_to_shopping_cart(items: list[dict], user_id: str, cart_id: str) -> str:
             qdrant_client = QdrantClient(url="http://localhost:6333")
 
             dummy_vector = np.zeros(3072).tolist()
-            payload = qdrant_client.query_points(
+            points = qdrant_client.query_points(
                 collection_name="Amazon-items-collection-01-hybrid-search",
-                prefetch=[
-                    Prefetch(
-                        query=dummy_vector,
-                        filter=Filter(
-                        must=[
-                            FieldCondition(
-                                key="parent_asin",
-                                match=MatchValue(value=product_id)
-                            )
-                        ]
-                    ),
-                        using="text-embedding-3-large",
-                        limit=20
-                    )
-                ],
-                query=FusionQuery(fusion="rrf"),
+                query=dummy_vector,
+                using="text-embedding-3-large",
+                query_filter=Filter(
+                    must=[FieldCondition(key="parent_asin", match=MatchValue(value=product_id))]
+                ),
                 limit=1,
-            ).points[0].payload
+            ).points
+
+            if not points:
+                continue
+
+            payload = points[0].payload
 
             product_image_url = payload.get("image")
             price = payload.get("price")
