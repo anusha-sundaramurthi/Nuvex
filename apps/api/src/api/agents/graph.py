@@ -261,7 +261,7 @@ def rag_agent_stream_wrapper(question: str, thread_id: str):
                 collection_name="Amazon-items-collection-01-hybrid-search",
                 query=dummy_vector,
                 limit=1,
-                using="text-embedding-3-small",
+                using="text-embedding-3-large",
                 with_payload=True,
                 query_filter=Filter(
                     must=[

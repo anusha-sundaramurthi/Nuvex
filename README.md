@@ -4,19 +4,21 @@
 
 ## 📌 Project Description
 
-This project is a **RAG-based AI Shopping Assistant** built for an Amazon product catalogue.
+This project is a **Multi-Agent AI Shopping Assistant** built for an Amazon product catalogue.
 
 The system uses:
 
 • Retrieval-Augmented Generation (RAG)  
 • Qdrant Vector Database  
-• LLM via OpenAI / Groq / Google GenAI  
-• LangGraph Agent Pipeline 
+• LLM via OpenAI GPT-4.1  
+• LangGraph Multi-Agent Pipeline  
 • Structured Outputs via Instructor + Pydantic
 • Prompt Versioning via Jinja2 + LangSmith Registry
 • RAGAS Evaluation Framework
+• Persistent Conversation Memory via PostgresSaver
+• Real Shopping Cart and Warehouse Inventory via Postgres
 
-to answer user questions about products, features, ratings, and comparisons — through a clean conversational chat interface with a product image sidebar.
+to answer user questions about products, manage shopping carts, check warehouse availability, and reserve stock — through a clean conversational chat interface with a product image sidebar.
 
 ---
 
@@ -28,7 +30,9 @@ The main objective is to develop a system that:
 • Converts product descriptions into semantic embeddings  
 • Retrieves relevant products based on user query  
 • Generates grounded, accurate answers using an LLM  
-• Supports multi-turn conversations with follow-up context
+• Supports multi-turn conversations with persistent memory across sessions
+• Manages a real shopping cart backed by Postgres
+• Checks warehouse stock availability and reserves items
 • Evaluates retrieval quality using RAGAS metrics
 • Displays results through a clean Streamlit chat UI with product image sidebar
 
@@ -39,9 +43,9 @@ The main objective is to develop a system that:
 | Tool | Purpose |
 | --- | --- |
 | Python 3.12 | Programming Language |
-| LangGraph | RAG Agent Pipeline |
-| OpenAI / Groq / Google GenAI | LLM for Response Generation |
-| Qdrant | Vector Store for Semantic Search |
+| LangGraph | Multi-Agent Pipeline + Checkpointing |
+| OpenAI GPT-4.1 | LLM for all agents |
+| Qdrant | Vector Store for Semantic + Hybrid Search |
 | Instructor + Pydantic | Structured LLM Outputs |
 | FastAPI + httpx | REST API Backend |
 | Streamlit | Chat Web Interface |
@@ -49,6 +53,9 @@ The main objective is to develop a system that:
 | RAGAS | Retrieval Evaluation |
 | Jinja2 + YAML | Prompt Versioning & Management |
 | Cohere | Reranking Retrieved Results |
+| PostgresSaver | Persistent Conversation Memory |
+| psycopg2 | Postgres DB Driver |
+| FastMCP | MCP Server Protocol |
 | Docker + Docker Compose | Containerisation |
 | uv | Python Package Manager |
 | Git & GitHub | Version Control |
@@ -59,7 +66,7 @@ The main objective is to develop a system that:
 
 ## ⚙️ Services Running in Docker
 
-All three services — `api`, `qdrant`, and `chat_ui` — running via Docker Compose on the `nuvex-network`.
+All services — `api`, `qdrant`, `postgres`, `chat_ui`, `items_mcp_server`, `reviews_mcp_server` — running via Docker Compose on the `nuvex-network`.
 
 ![Services](assets/services.png)
 
@@ -107,6 +114,31 @@ Nuvex handling a multi-product query by splitting it into parallel searches and 
 
 ---
 
+## 🤖 Multi-Agent Architecture
+
+### Product QA Agent — Wireless Headphones Search
+
+The Product QA Agent searches the product catalogue and returns detailed specifications with product images in the sidebar. Each product is listed with bullet-point features pulled directly from the vector database.
+
+![Product QA Agent](assets/product_qa_agent.png)
+
+---
+
+### Multi-Turn Memory — Add to Cart
+
+The user says *"add this to my cart"* without specifying which product. The system remembers the previous turn via `PostgresSaver` and correctly identifies and adds the Ltinist Wireless Earbuds to the shopping cart.
+
+![Multi Turn Memory](assets/multi_turn_memory.png)
+
+---
+
+### Shopping Cart Agent — Item Added
+
+The Shopping Cart Agent confirms the iPhone Earbuds have been added to the cart with the product image appearing in the sidebar.
+
+![Shopping Cart Agent](assets/cart_agent.png)
+
+---
 
 # 🗂 Project Structure
 
@@ -116,24 +148,33 @@ Nuvex/
 │   ├── api/                        # FastAPI backend (uv workspace member)
 │   │   ├── Dockerfile
 │   │   └── src/
-│   │       ├── main.py             # FastAPI entry point
-│   │       ├── agents/
-│   │       │   └── graph.py        # LangGraph RAG pipeline
-│   │       |   ├── retrieval_generation.py  # RAG pipeline (embed, retrieve, generate)
-│   │       |   ├── prompts/
-│   │       |   │   └── retrieval_generation.yaml  # Versioned prompt template
-│   │       └── evals/
-│   │           └── eval_retriever.py
-│   └── chat_ui/                    # Streamlit frontend (uv workspace member)
+│   │       └── api/
+│   │           ├── agents/
+│   │           │   ├── agents.py           # 4 agent functions
+│   │           │   ├── tools.py            # All tool functions
+│   │           │   ├── graph.py            # Multi-agent LangGraph pipeline
+│   │           │   ├── retrieval_generation.py
+│   │           │   ├── prompts/            # YAML prompt templates
+│   │           │   └── utils/
+│   │           └── core/
+│   │               └── config.py
+│   ├── chat_ui/                    # Streamlit frontend (uv workspace member)
+│   │   ├── Dockerfile
+│   │   └── src/
+│   ├── items_mcp_server/           # MCP server for product search
+│   │   ├── Dockerfile
+│   │   └── src/
+│   └── reviews_mcp_server/         # MCP server for reviews search
 │       ├── Dockerfile
 │       └── src/
-├── notebook/                       # Jupyter notebooks for data ingestion & exploration
+├── notebook/                       # Jupyter notebooks (weeks 1–5)
+├── scripts/
+│   └── sql/                        # Postgres init scripts
+│       ├── shopping_cart_table.sql
+│       └── warehouse_management.sql
 ├── .env                            # Environment variables (not committed)
-├── .gitignore
-├── .python-version                 # Python 3.12
 ├── docker-compose.yml              # Multi-service orchestration
-├── Makefile                        # Dev shortcuts
-├── pyproject.toml                  # Project dependencies (uv)
+├── pyproject.toml                  # Workspace dependencies (uv)
 └── uv.lock
 ```
 
@@ -219,15 +260,13 @@ http://localhost:8501
 
 ✅ Cohere reranking for improved result ordering
 
-✅ Multi-turn conversation with follow-up question support
+✅ Multi-turn conversation with persistent memory via PostgresSaver
 
-✅ Prompt versioning via Jinja2 YAML templates + LangSmith registry (notebook 10)
- 
+✅ Prompt versioning via Jinja2 YAML templates + LangSmith registry
+
 ✅ Grounded answers with numbered product list + bullet point features
- 
-✅ Product image sidebar — images populate in real-time after each response
 
-✅ Support for multiple LLM providers (OpenAI, Groq, Google GenAI)
+✅ Product image sidebar — images populate in real-time after each response
 
 ✅ Structured outputs via Instructor + Pydantic
 
@@ -239,23 +278,46 @@ http://localhost:8501
 
 ✅ Query rewriting — multi-intent queries split into focused parallel searches
 
-✅ Clean Streamlit chat interface
+✅ Coordinator agent — routes requests to the right specialist agent
 
-✅ Fully containerised with Docker Compose
+✅ Product QA agent — searches products and reviews with tool use
+
+✅ Shopping cart agent — add, view, remove items backed by Postgres
+
+✅ Warehouse manager agent — check stock and reserve items across warehouses
+
+✅ MCP servers — items and reviews served as independent Docker HTTP services
+
+✅ Real-time streaming status — UI updates as each agent node runs
+
+✅ Fully containerised with Docker Compose (6 services)
 
 ---
 
-## 🧠 RAG Pipeline Used
+## 🧠 Multi-Agent Architecture
 
-This project uses:
+The system uses a coordinator-specialist pattern with four agents:
 
-• Retrieval-Augmented Generation (RAG)
-
-• Qdrant Vector Store with Semantic Embeddings
-
-• LangGraph Agent Graph
-
-• Multi-LLM Support (OpenAI / Groq / Google GenAI)
+```
+User Message
+     ↓
+Coordinator Agent (GPT-4.1)
+(reads intent, creates delegation plan, routes to specialist)
+     ↓
+┌────────────────┬─────────────────────┬──────────────────────────┐
+│                │                     │                          │
+Product QA    Shopping Cart       Warehouse Manager
+Agent         Agent               Agent
+│                │                     │
+├── get_items  ├── add_to_cart     ├── check_availability
+└── get_reviews└── get_cart        └── reserve_items
+               └── remove_from_cart
+     ↓
+Coordinator Agent
+(synthesises final answer)
+     ↓
+Streamlit UI
+```
 
 ---
 
@@ -268,32 +330,29 @@ Streamlit Chat UI (Port 8501)
      ↓
 FastAPI Backend (Port 8000)
      ↓
-Intent Router (Groq LLM)
-(classifies question as shopping-related or off-topic)
-     ↓ (off-topic → blocked immediately, no retrieval)
-Query Expansion Node (Groq LLM)
-(splits multi-intent query into focused sub-queries)
+Coordinator Agent (GPT-4.1)
+(reads intent, creates plan, delegates to specialist agent)
      ↓
-Parallel Retrieval via LangGraph Send()
-(one Qdrant search per sub-query, all running simultaneously)
+Product QA / Shopping Cart / Warehouse Manager Agent
+(each has own tools, iterates until final_answer=True)
      ↓
-Gemini Embedding API
-(converts each sub-query to 3072-dim vector)
+Tool Node (ToolNode)
+(executes tool calls — Qdrant search, Postgres read/write)
      ↓
-Qdrant Vector DB (Port 6333)
-(finds top-k relevant products per sub-query)
+PostgresSaver (langgraph_db)
+(checkpoints full conversation state for multi-turn memory)
      ↓
-Aggregator Node (Groq LLM)
-(combines all retrieved results, generates grounded answer)
-     ↓
-Structured Output Parser (Pydantic)
-(extracts answer text + product IDs)
+Coordinator Agent
+(receives specialist result, generates final answer)
      ↓
 Qdrant Image Lookup
-(fetches product image URLs + prices by ID)
+(fetches product image URLs + prices by product ID)
+     ↓
+Postgres Cart Lookup
+(fetches current shopping cart items)
      ↓
 SSE Stream → Streamlit
-(answer rendered as HTML, images shown in sidebar)
+(answer + product images in sidebar + cart tab updated)
 ```
 
 ---
@@ -318,8 +377,11 @@ The evaluation dataset is synthetically generated using Gemini and stored in Lan
 | Service | Port | Description |
 | --- | --- | --- |
 | `chat_ui` | 8501 | Streamlit conversational frontend |
-| `api` | 8000 | FastAPI RAG backend |
+| `api` | 8000 | FastAPI multi-agent backend |
 | `qdrant` | 6333 / 6334 | Qdrant vector database |
+| `postgres` | 5433 | Postgres — conversation memory + cart + warehouse |
+| `items_mcp_server` | 8001 | MCP server for product search |
+| `reviews_mcp_server` | 8002 | MCP server for reviews search |
 
 All services communicate over the `nuvex-network` Docker bridge network.
 
@@ -339,12 +401,12 @@ All services communicate over the `nuvex-network` Docker bridge network.
 
 | Parameter | Default | Effect |
 | --- | --- | --- |
-| `COLLECTION_NAME` | `Amazon-items-collection-01` | Qdrant collection to query |
+| `COLLECTION_NAME` | `Amazon-items-collection-01-hybrid-search` | Qdrant collection to query |
 | `QDRANT_HOST` | `qdrant` | Qdrant service host |
 | `QDRANT_PORT` | `6333` | Qdrant service port |
 | `top_k` | `5` | Number of products retrieved per query |
-| LLM provider | Groq | Swap for OpenAI or Google GenAI |
-| Embedding model | Gemini `gemini-embedding-001` | 3072-dim dense embeddings |
+| LLM | GPT-4.1 | Main agent LLM |
+| Embedding model | `text-embedding-3-large` | 3072-dim dense embeddings |
 
 ---
 
@@ -352,7 +414,7 @@ All services communicate over the `nuvex-network` Docker bridge network.
 
 Name: Anusha Sundaramurthi
 
-Project: Nuvex – AI-Powered Shopping Assistant (RAG System)
+Project: Nuvex – AI-Powered Shopping Assistant
 
 ---
 
@@ -366,8 +428,4 @@ https://github.com/anusha-sundaramurthi/Nuvex
 
 ## ⭐ Conclusion
 
-Nuvex demonstrates a production-ready implementation of Retrieval-Augmented Generation using LangGraph, Qdrant, and multi-provider LLM support. It goes beyond a basic RAG system by incorporating hybrid search, structured outputs with grounded references, prompt versioning, RAGAS evaluation, human feedback collection, and a polished Streamlit UI with real-time product image suggestions — all fully containerised with Docker Compose.
-
-The system has been further upgraded with an **intent router** that blocks off-topic questions before any retrieval happens, and **query rewriting with parallel retrieval** using LangGraph's `Send()` API — enabling multi-intent queries like *"a laptop, a mouse and a keyboard"* to be split into focused parallel searches and answered comprehensively in a single response.
-
----
+Nuvex demonstrates a production-ready implementation of a multi-agent AI shopping assistant using LangGraph, Qdrant, and OpenAI GPT-4.1. It goes beyond a basic RAG system by incorporating a full coordinator-specialist agent architecture, real Postgres-backed shopping cart and warehouse inventory, persistent multi-turn conversation memory via PostgresSaver, hybrid search with BM25 sparse vectors, structured outputs with grounded references, prompt versioning, RAGAS evaluation, human feedback collection, MCP servers as independent Docker services, and a polished Streamlit UI with real-time product image suggestions and cart management — all fully containerised with Docker Compose across 6 services.
